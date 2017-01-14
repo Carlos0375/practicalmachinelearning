@@ -87,7 +87,7 @@ the model will not be overfitted a repeated cross validation with kfold = 5  and
 Additionally the number of trees (ntree) was set to 50 to improve performance
 without sacrificing accuracy (the number 50 was taken from analyzing the 
 plot of the finalModel from standard settings (ntree=500). 
-```{r modfit_1, cache=FALSE}
+```{r modfit_1, cache=TRUE}
 train_control <- trainControl(method="repeatedcv", number=5, repeats=2)
 modFit1 <- train(classe ~ ., trControl=train_control, method="rf", 
                  data=train.train.4, ntree=50)
