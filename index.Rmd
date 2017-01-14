@@ -1,0 +1,145 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Carl Huelgas"
+date: "14 Januar 2017"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Required packages
+```{r required_packages, warning=FALSE}
+library(caret)
+library(ggplot2)
+```
+
+# Abstract
+The goal of the assignment is to predict the way in which a fitness excercise is 
+performed. The given data contains 19622 observations over 160 variables. Therefore
+the data contains 159 predictors and one variable to predict (classe).
+The data was preprocessed and the random forest algorithm was used to predict
+the outcome of the excercise. The out of sample accuracy of the prediction is 
+approx. 0.9972.
+
+## Loading the Data and Partitioning
+In a first step the given data is loaded and a training and test dataset is
+created using the function createDataPartition with a p=0.6.
+```{r loading_data}
+pml.training <- read.csv("~/Documents/Data Science/Practical Machine Learning/pml-training.csv")
+train <- pml.training
+set.seed(123)
+inTrain <- createDataPartition(y=train$classe, p=0.6, list=FALSE)
+train.train <- train[inTrain,]
+train.test <- train[-inTrain,]
+```
+
+## First analysis of the data
+```{r analysis_1}
+str(train.train[,1:10])
+summary(train.train[,1:10])
+```
+Viewing the structure and the summary of the data (in the report only an example 
+is shown) shows that there are numerous variables containing NA and factor variables 
+with more the 30 levels. There are also some variables which are not relevant for 
+prediction. The outcome is predicted by the variable classe with five levels 
+("A" to "E").
+
+## Preprocession of the data
+In a first step the variables 1 to 5 are removed from the dataset. This is done
+because this variables will have no impact on the outcome (1 = index, 2 = name,
+3 to 5 = timestamps).
+```{r prepro_1}
+train.train.1 <- train.train[,-c(1:5)]
+```
+## Analyse/preprocess the factor variables - convert to numerical
+A closer look at the factor variables (excluding classe) shows, that they actually
+should be numeric (e.g. skewness_pitch_dumbbell).
+```{r prepro_2, warning=FALSE}
+train.train.2 <- data.frame(lapply(train.train.1[,-155], 
+                                   function(x) as.numeric(as.character(x))))
+train.train.2$classe <- train.train.1$classe
+```
+## Analyse variables for near zero Variance
+Next the variables are analysed for variance. Variables with near zero variance
+will be dropped from the further analysis.
+```{r prepro_3}
+nzv <- nearZeroVar(train.train.2, saveMetrics=TRUE)
+head(nzv[nzv$nzv,],10)
+nzv_d <- nearZeroVar(train.train.2)
+length(nzv_d)
+train.train.3 <- train.train.2[,-nzv_d]
+```
+The function nearZeroVar found 29 variables with zero variance or near zero 
+variance. This variables were dropped from the analysis.
+## Preprocess to cope with missing values (knn Impute)
+The conversion of the factor variables to numerical variables created numerous
+NA (although the missing values were always there just not as NA in factor variables).
+This missing values are imputed using the preProcess function with the knn algorithm
+with k=5 and predicted using the predict function with preProcess object and the data.
+```{r prepro_4}
+preObj.1 <- preProcess(train.train.3, method="knnImpute", k=5)
+train.train.4 <- predict(preObj.1, newdata = train.train.3)
+```
+# Model creation
+As an algorithm for model creation "random forest" was choosen. To ensure that
+the model will not be overfitted a repeated cross validation with kfold = 5  and
+2 repeats was passed to the algorithm by the trainControl argument.
+Additionally the number of trees (ntree) was set to 50 to improve performance
+without sacrificing accuracy (the number 50 was taken from analyzing the 
+plot of the finalModel from standard settings (ntree=500). 
+```{r modfit_1, cache=FALSE}
+train_control <- trainControl(method="repeatedcv", number=5, repeats=2)
+modFit1 <- train(classe ~ ., trControl=train_control, method="rf", 
+                 data=train.train.4, ntree=50)
+modFit1$finalModel
+plot(modFit1$finalModel)
+```
+
+The model statistics show an out of the box error (OOB) of 0.53%. The confusion
+matrix support this very low error rate - 
+As can be seen by the plot the number of trees (50) is more than sufficient to
+minimize the error rate.  
+Analyse the model performance with the train data_
+```{r modfit_2}
+predictM1.train <- predict(modFit1, newdata = train.train.4[,-126])
+confusionMatrix(predictM1.train, train.train.4[,126])
+```
+And with the test data (testing partition of the original train data).
+All preprocessing steps are first applied to the train.test data.
+```{r modfit_3, warning=FALSE}
+train.test.1 <- train.test[,-c(1:5)]
+train.test.2 <- data.frame(lapply(train.test.1[,-155], 
+                                  function(x) as.numeric(as.character(x))))
+train.test.2$classe <- train.test.1$classe
+train.test.3 <- train.test.2[,-nzv_d]
+train.test.4 <- predict(preObj.1, newdata = train.test.3)
+
+predictM1.test <- predict(modFit1, newdata=train.test.4[,-126])
+confusionMatrix(predictM1.test, train.test.4[,126])
+```
+The confusion Matrix shows an out of sample accuracy of 0.9972 which is
+near perfect.
+The 20 most important variables are shown in the following plot:
+```{r modfit_4}
+varImport <- varImp(modFit1, scale = FALSE)
+plot(varImport,20)
+```
+
+The model is used to predict the classe of the test data:
+Therefore the test data is loaded and all preprocessing steps are performed
+on the test data
+```{r modfit_5}
+pml.testing <- read.csv("~/Documents/Data Science/Practical Machine Learning/pml-testing.csv")
+test <- pml.testing
+test.1 <- test[,-c(1:5)]
+test.2 <- data.frame(lapply(test.1[,-155], 
+                            function(x) as.numeric(as.character(x))))
+test.2$classe <- test.1$classe
+test.3 <- test.2[,-nzv_d]
+test.4 <- predict(preObj.1, newdata=test.3)
+```
+The preprocessed data is used for prediction:
+```{r modfit_6}
+predict(modFit1, newdata=test.4)
+```
+This predictions were used for the quiz with 100% accuracy.
