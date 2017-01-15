@@ -133,7 +133,7 @@ train.test.4 <- predict(preObj.1, newdata = train.test.3)
 predictM1.test <- predict(modFit1, newdata=train.test.4[,-126])
 confusionMatrix(predictM1.test, train.test.4[,126])
 ```
-The confusion Matrix shows an out of sample accuracy of 0.9947 which is
+The confusion Matrix shows an out of sample accuracy of 0.9957 which is
 near perfect.
 The 20 most important variables are shown in the following plot:
 ```{r modfit_4}
