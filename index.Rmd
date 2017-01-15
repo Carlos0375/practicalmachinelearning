@@ -17,13 +17,16 @@ library(ggplot2)
 The goal of the assignment is to predict the way in which a fitness excercise is 
 performed. The given data contains 19622 observations over 160 variables. Therefore
 the data contains 159 predictors and one variable to predict (classe).
+As a goal an out of sample error of over 0.8 is aimed.
+
 The data was preprocessed and the random forest algorithm was used to predict
-the outcome of the excercise. The out of sample accuracy of the prediction is 
+the outcome of the excercise. The actual out of sample accuracy of the prediction is 
 approx. 0.9972.
 
 ## Loading the Data and Partitioning
 In a first step the given data is loaded and a training and test dataset is
-created using the function createDataPartition with a p=0.6.
+created using the function createDataPartition with p=0.6. The value was
+choosen because of the large dataset.
 ```{r loading_data}
 pml.training <- read.csv("~/Documents/Data Science/Practical Machine Learning/pml-training.csv")
 train <- pml.training
@@ -84,22 +87,35 @@ train.train.4 <- predict(preObj.1, newdata = train.train.3)
 As an algorithm for model creation "random forest" was choosen. To ensure that
 the model will not be overfitted a repeated cross validation with kfold = 5  and
 2 repeats was passed to the algorithm by the trainControl argument.
-Additionally the number of trees (ntree) was set to 50 to improve performance
-without sacrificing accuracy (the number 50 was taken from analyzing the 
-plot of the finalModel from standard settings (ntree=500). 
+
+In a first step the model was build using the standard settings von ntree=500.
+```{r modfit_i, cache=TRUE}
+train_control <- trainControl(method="repeatedcv", number=5, repeats=2)
+modFit.i <- train(classe ~ ., trControl=train_control, method="rf", data=train.train.4)
+modFit.i$finalModel
+plot(modFit.i$finalModel)
+```
+
+The out of the box error (OOB) of this first model is 0.42%.  
+As can be seen by the plot the high number of trees does not improve the model
+accuracy. The time to calculate the model is also very high (due to the large
+amount of trees).  
+In a second approach the number of trees (ntree) was set to 50 to improve 
+performance without sacrificing accuracy.  
 ```{r modfit_1, cache=TRUE}
 train_control <- trainControl(method="repeatedcv", number=5, repeats=2)
-modFit1 <- train(classe ~ ., trControl=train_control, method="rf", 
-                 data=train.train.4, ntree=50)
+modFit1 <- train(classe ~ ., trControl=train_control, method="rf", ntree=50, 
+                 data=train.train.4)
 modFit1$finalModel
 plot(modFit1$finalModel)
 ```
 
-The model statistics show an out of the box error (OOB) of 0.53%. The confusion
-matrix support this very low error rate - 
+The model statistics show an out of the box error (OOB) of 0.47% and therefore
+only slightly higher than in the first model. The confusion matrix support this 
+very low error rate.
 As can be seen by the plot the number of trees (50) is more than sufficient to
 minimize the error rate.  
-Analyse the model performance with the train data_
+Analyse the model performance with the train data  
 ```{r modfit_2}
 predictM1.train <- predict(modFit1, newdata = train.train.4[,-126])
 confusionMatrix(predictM1.train, train.train.4[,126])
@@ -142,4 +158,4 @@ The preprocessed data is used for prediction:
 ```{r modfit_6}
 predict(modFit1, newdata=test.4)
 ```
-This predictions were used for the quiz with 100% accuracy.
+These predictions were used for the quiz.
